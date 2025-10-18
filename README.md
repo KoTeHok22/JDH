@@ -23,8 +23,8 @@
 
 1.  **Клонируйте репозиторий:**
     ```bash
-    git clone <repository-url>
-    cd <repository-name>
+    git clone https://github.com/KoTeHok22/JDH
+    cd JDH
     ```
 
 2.  **Создайте и активируйте виртуальное окружение:**
