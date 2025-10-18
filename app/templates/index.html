@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рекомендатель Цены Ставки</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <style>
+        :root {
+            --font-size: 15px;
+            --spacing: 0.75rem;
+        }
+        body { 
+            padding: 1rem; 
+        }
+        .container { 
+            max-width: 768px; 
+            padding: 0;
+        }
+        hgroup {
+            margin-bottom: 1.5rem;
+        }
+        h1, h2 {
+            margin-bottom: 0.5rem;
+        }
+        form label {
+            margin-bottom: 0.25rem;
+        }
+        form input, form select, form button {
+            margin-bottom: 0.75rem;
+        }
+        #result { 
+            margin-top: 1rem; 
+            padding: 1rem; 
+            border: 1px solid var(--primary-border); 
+            border-radius: var(--border-radius); 
+        }
+        #result.hidden { 
+            display: none; 
+        }
+        #result table th, #result table td {
+            padding: 0.5rem 0.75rem;
+        }
+        .loader { 
+            display: none; 
+            width: 18px; 
+            height: 18px; 
+            border: 2px solid var(--secondary); 
+            border-top-color: var(--primary); 
+            border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+            margin-left: 8px; 
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <hgroup>
+            <h1>Рекомендатель Цены Ставки</h1>
+            <h2>Введите данные заказа, чтобы получить рекомендацию по оптимальной цене ставки.</h2>
+        </hgroup>
+        <form id="recommendation-form">
+            <label for="price_start_local">Начальная цена</label>
+            <input type="number" id="price_start_local" name="price_start_local" value="300" required>
+            
+            <label for="driver_rating">Рейтинг водителя</label>
+            <input type="number" step="0.01" id="driver_rating" name="driver_rating" value="4.95" required>
+
+            <label for="driver_reg_date">Дата регистрации водителя</label>
+            <input type="date" id="driver_reg_date" name="driver_reg_date" value="2022-01-15" required>
+            
+            <grid>
+                <label for="platform">
+                    Платформа
+                    <select id="platform" name="platform" required>
+                        <option value="android" selected>Android</option>
+                        <option value="ios">iOS</option>
+                    </select>
+                </label>
+                <label for="car_class">
+                    Класс авто
+                    <select id="car_class" name="car_class" required>
+                        <option value="econom" selected>Эконом</option>
+                        <option value="comfort">Комфорт</option>
+                        <option value="business">Бизнес</option>
+                    </select>
+                </label>
+            </grid>
+            <button type="submit" id="submit-btn">
+                Получить рекомендацию
+                <span class="loader"></span>
+            </button>
+        </form>
+        <div id="result" class="hidden">
+            <h4>Оптимальная цена:</h4>
+            <div id="result-text"></div>
+        </div>
+    </main>
+    <script>
+        document.getElementById('recommendation-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            
+            // 'user_rating' is no longer used by the model, so we don't send it.
+            delete data.user_rating;
+
+            const submitBtn = document.getElementById('submit-btn');
+            const loader = submitBtn.querySelector('.loader');
+            const resultDiv = document.getElementById('result');
+            const resultTitle = resultDiv.querySelector('h4');
+            const resultText = document.getElementById('result-text');
+
+            submitBtn.disabled = true;
+            loader.style.display = 'inline-block';
+            resultText.innerHTML = '';
+            resultDiv.classList.add('hidden');
+
+            try {
+                const response = await fetch('/recommend_price', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const resultData = await response.json();
+
+                if (response.ok && resultData.options) {
+                    let tableRows = resultData.options.map(opt => {
+                        // Highlight the optimal strategy
+                        const isOptimal = opt.strategy === 'optimal';
+                        const strategyNames = {
+                            safe: 'Безопасная',
+                            optimal: 'Оптимальная',
+                            risky: 'Рискованная',
+                            initial_price: 'Начальная цена'
+                        };
+
+                        return `
+                            <tr ${isOptimal ? 'style="background-color: var(--primary-focus);"' : ''}>
+                                <td><strong>${strategyNames[opt.strategy] || opt.strategy}</strong></td>
+                                <td><strong>${opt.recommended_price.toFixed(2)} руб.</strong></td>
+                                <td>${(opt.success_probability * 100).toFixed(1)}%</td>
+                                <td>${opt.expected_income.toFixed(2)} руб.</td>
+                            </tr>
+                        `;
+                    }).join('');
+
+                    const content = `
+                        <p>${resultData.recommendation_text}</p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Стратегия</th>
+                                    <th>Цена</th>
+                                    <th>Вероятность успеха</th>
+                                    <th>Ожидаемый доход</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRows}
+                            </tbody>
+                        </table>
+                    `;
+                    resultText.innerHTML = content;
+
+                } else {
+                    resultText.textContent = `Ошибка: ${resultData.error || 'Произошла неизвестная ошибка.'}`;
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                resultText.textContent = 'Произошла ошибка при связи с сервером.';
+            } finally {
+                loader.style.display = 'none';
+                submitBtn.disabled = false;
+                resultDiv.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -27,6 +27,9 @@ def prepare_data(input_path: str = 'train.csv', output_dir: str = './data'):
         print(f"Error: {input_path} not found. Please place it in the root directory.")
         return
 
+    # Удаление ненужных столбцов
+    df.drop(columns=['tender_id', 'carmodel'], inplace=True, errors='ignore')
+
     print("Performing feature engineering...")
     df['order_timestamp'] = pd.to_datetime(df['order_timestamp'])
     df['driver_reg_date'] = pd.to_datetime(df['driver_reg_date'])
@@ -36,14 +39,15 @@ def prepare_data(input_path: str = 'train.csv', output_dir: str = './data'):
     df['bid_increase_ratio'].fillna(0, inplace=True)
 
     df['hour_of_day'] = df['order_timestamp'].dt.hour
-    df['day_of_week'] = df['order_timestamp'].dt.dayofweek
-
+    df['day_of_week'] = df['order_timestamp'].dt.weekday
     df['driver_experience_days'] = (df['order_timestamp'] - df['driver_reg_date']).dt.days
 
     def map_car_to_class(car_name):
-        business_brands = ['Toyota', 'Mercedes-Benz', 'BMW', 'Lexus', 'Audi', 'Porsche', 'Genesis']
-        comfort_brands = ['Volkswagen', 'Skoda', 'Ford', 'Kia', 'Hyundai', 'Mazda', 'Honda', 'Subaru', 'Nissan', 'Mitsubishi']
-        
+        if not isinstance(car_name, str):
+            return 'econom'
+        car_name = car_name.lower()
+        business_brands = ['mercedes-benz', 'bmw', 'lexus', 'audi', 'porsche', 'genesis']
+        comfort_brands = ['volkswagen', 'skoda', 'ford', 'kia', 'hyundai', 'mazda', 'honda', 'subaru', 'nissan', 'mitsubishi']
         if car_name in business_brands:
             return 'business'
         elif car_name in comfort_brands:
@@ -55,7 +59,28 @@ def prepare_data(input_path: str = 'train.csv', output_dir: str = './data'):
     df.drop(columns=['carname'], inplace=True)
 
     df['is_done'] = df['is_done'].apply(lambda x: 1 if x == 'done' else 0)
+
+    print("Mapping categorical features to integers...")
+    platform_map = {'android': 0, 'ios': 1}
+    car_class_map = {'econom': 0, 'comfort': 1, 'business': 2}
+    df['platform'] = df['platform'].map(platform_map)
+    df['car_class'] = df['car_class'].map(car_class_map)
+    df['platform'].fillna(-1, inplace=True)
+    df['car_class'].fillna(-1, inplace=True)
+
     print("Feature engineering complete.")
+
+    # Calculate medians BEFORE filling NAs
+    median_driver_rating = df['driver_rating'].median()
+    # Assuming 'user_rating' might exist in other versions of data, calculate it too.
+    if 'user_rating' in df.columns:
+        median_user_rating = df['user_rating'].median()
+        df['user_rating'].fillna(median_user_rating, inplace=True)
+        print("NaN values in user_rating filled with median.")
+
+    # Fill NAs with calculated medians
+    df['driver_rating'].fillna(median_driver_rating, inplace=True)
+    print("NaN values in driver_rating filled with median.")
 
     initial_rows = len(df)
     df = df[df['driver_experience_days'] >= 0]
@@ -71,10 +96,8 @@ def prepare_data(input_path: str = 'train.csv', output_dir: str = './data'):
     train_df.to_csv(train_output_path, index=False)
     test_df.to_csv(test_output_path, index=False)
 
-    print("\nData preparation finished.")
-    print(f"Training set shape: {train_df.shape}")
-    print(f"Testing set shape:  {test_df.shape}")
-    print(f"Processed files saved to: {os.path.abspath(output_dir)}")
+    print(f"Processed data saved to '{train_output_path}' and '{test_output_path}'.")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     prepare_data()
+
