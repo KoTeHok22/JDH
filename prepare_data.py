@@ -1,19 +1,8 @@
-"""
-Этот скрипт подготавливает исходные данные, выполняя генерацию признаков,
-очистку и разделение их на обучающие и тестовые наборы.
-"""
 import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
 def prepare_data(input_path: str = 'train.csv', output_dir: str = './data'):
-    """
-    Загружает, обрабатывает и разделяет набор данных.
-
-    Аргументы:
-        input_path (str): Путь к исходным данным CSV.
-        output_dir (str): Каталог для сохранения обработанных файлов.
-    """
     print("Starting data preparation...")
 
     if not os.path.exists(output_dir):
@@ -27,7 +16,6 @@ def prepare_data(input_path: str = 'train.csv', output_dir: str = './data'):
         print(f"Error: {input_path} not found. Please place it in the root directory.")
         return
 
-    # Удаление ненужных столбцов
     df.drop(columns=['tender_id', 'carmodel'], inplace=True, errors='ignore')
 
     print("Performing feature engineering...")
@@ -70,15 +58,12 @@ def prepare_data(input_path: str = 'train.csv', output_dir: str = './data'):
 
     print("Feature engineering complete.")
 
-    # Calculate medians BEFORE filling NAs
     median_driver_rating = df['driver_rating'].median()
-    # Assuming 'user_rating' might exist in other versions of data, calculate it too.
     if 'user_rating' in df.columns:
         median_user_rating = df['user_rating'].median()
         df['user_rating'].fillna(median_user_rating, inplace=True)
         print("NaN values in user_rating filled with median.")
 
-    # Fill NAs with calculated medians
     df['driver_rating'].fillna(median_driver_rating, inplace=True)
     print("NaN values in driver_rating filled with median.")
 
@@ -100,4 +85,3 @@ def prepare_data(input_path: str = 'train.csv', output_dir: str = './data'):
 
 if __name__ == '__main__':
     prepare_data()
-

@@ -1,7 +1,4 @@
-"""
-Этот скрипт обучает классификатор LightGBM на обработанных данных,
-оценивает его и сохраняет обученную модель.
-"""
+
 import os
 import pandas as pd
 import joblib
@@ -9,13 +6,6 @@ from sklearn.metrics import roc_auc_score
 import lightgbm as lgb
 
 def train_model(data_dir: str = './data', model_dir: str = './model'):
-    """
-    Обучает и сохраняет модель машинного обучения.
-
-    Аргументы:
-        data_dir (str): Каталог, где хранятся обработанные данные.
-        model_dir (str): Каталог для сохранения обученной модели.
-    """
     print("Starting model training...")
 
     if not os.path.exists(model_dir):
@@ -42,10 +32,8 @@ def train_model(data_dir: str = './data', model_dir: str = './model'):
     X_test = test_df[FEATURES]
     y_test = test_df[TARGET]
 
-    # Определяем категориальные признаки для LightGBM
     categorical_features = ['platform', 'car_class']
 
-    # Создаем и обучаем модель LightGBM напрямую
     model = lgb.LGBMClassifier(
         random_state=42, 
         n_estimators=200, 
@@ -60,9 +48,6 @@ def train_model(data_dir: str = './data', model_dir: str = './model'):
         categorical_feature=categorical_features
     )
     print("Model training complete.")
-
-    # Сохраняем список признаков в модели для последующей валидации
-    # model.feature_names_ = FEATURES
 
     print("Evaluating model performance on the test set...")
     y_pred_proba = model.predict_proba(X_test)[:, 1]
